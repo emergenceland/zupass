@@ -217,3 +217,4 @@ We also recommend that you create a comprehensive test suite for your new PCD, s
 
 - https://github.com/proofcarryingdata/zupass/blob/main/packages/semaphore-group-pcd/test/SemaphoreGroupPCD.spec.ts
 - https://github.com/proofcarryingdata/zupass/blob/main/packages/rsa-pcd/test/RSAPCD.spec.ts
+sup
