@@ -1206,6 +1206,11 @@
     "@ethersproject/properties" "^5.7.0"
     "@ethersproject/strings" "^5.7.0"
 
+"@grammyjs/menu@^1.2.1":
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/@grammyjs/menu/-/menu-1.2.1.tgz#4c29c10374ec2974ba9c158fda96f5129fb331fd"
+  integrity sha512-0LV9A/UukfF46N0ceSqG1RbdCjhvB2u1MNHNkE7eRD3GVlffOBnR+MS2ESE9mSBleT9OjRV6imA7QZ57QBktOQ==
+
 "@grammyjs/types@3.2.0":
   version "3.2.0"
   resolved "https://registry.yarnpkg.com/@grammyjs/types/-/types-3.2.0.tgz#571c51173337283e7bcb1d0f1e4fe25674546c5d"
