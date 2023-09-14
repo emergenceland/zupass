@@ -16,5 +16,6 @@ const dotEnvPath = IS_PROD
 logger(`[INIT] Loading environment variables from: ${dotEnvPath} `);
 dotenv.config({ path: dotEnvPath });
 logger("[INIT] Starting application");
+logger("[INIT] RELOAD ME PLZ");
 
 startApplication();
