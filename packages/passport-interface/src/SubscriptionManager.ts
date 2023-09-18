@@ -11,12 +11,8 @@ import { IFeedApi } from "./FeedAPI";
 
 export const enum PCDPassFeedIds {
   Devconnect = "1",
-<<<<<<< HEAD
   Frogs = "2",
   Email = "3"
-=======
-  Frogs = "2"
->>>>>>> 3a793b3b (Generic issuance (#516))
 }
 
 export async function applyActions(
