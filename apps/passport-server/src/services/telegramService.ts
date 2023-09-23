@@ -271,6 +271,21 @@ export class TelegramService {
         );
       }
     });
+
+    this.bot.command("anonsend", async (ctx) => {
+      if (ctx.chat?.type !== "private") {
+        await ctx.reply(
+          "To maintain privacy, please message within a private chat."
+        );
+        return;
+      }
+      const zktgUrl = "https://dev.local:4000/";
+
+      menu.webApp("Send anonymous message", zktgUrl);
+      await ctx.reply("Click below to anonymously send a message.", {
+        reply_markup: menu
+      });
+    });
   }
 
   /**
