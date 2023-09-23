@@ -15,7 +15,10 @@ import sha256 from "js-sha256";
 import { fetchPretixEventInfoByName } from "../database/queries/pretixEventInfo";
 import { deleteTelegramVerification } from "../database/queries/telegram/deleteTelegramVerification";
 import { fetchTelegramVerificationStatus } from "../database/queries/telegram/fetchTelegramConversation";
-import { fetchTelegramEventsByEventId } from "../database/queries/telegram/fetchTelegramEvent";
+import {
+  fetchTelegramEventsByChatId,
+  fetchTelegramEventsByEventId
+} from "../database/queries/telegram/fetchTelegramEvent";
 import {
   insertTelegramEvent,
   insertTelegramVerification
@@ -285,6 +288,61 @@ export class TelegramService {
       await ctx.reply("Click below to anonymously send a message.", {
         reply_markup: menu
       });
+    });
+
+    this.bot.command("incognito", async (ctx) => {
+      if (ctx.chat?.type !== "supergroup" && ctx.message?.is_topic_message) {
+        await ctx.reply(
+          "This command only works in a group with Topics enabled."
+        );
+      }
+      const admins = await ctx.getChatAdministrators();
+      const isAdmin = admins.some((admin) => admin.user.id === ctx.from?.id);
+      if (!isAdmin) {
+        await ctx.reply(
+          "Must be an admin to convert a channel to Incognito mode."
+        );
+        return;
+      }
+
+      try {
+        const telegramEvents = await fetchTelegramEventsByChatId(
+          this.context.dbPool,
+          ctx.chat.id
+        );
+        const hasLinked = telegramEvents.length > 0;
+        if (!hasLinked) {
+          await ctx.reply(
+            "This group is not linked to an event. Please use /link to link this group to an event."
+          );
+          return;
+        } else if (telegramEvents.filter((e) => e.anon_chat_id).length > 0) {
+          await ctx.reply(
+            `This group has already linked an anonymous channel.`
+          );
+          return;
+        }
+
+        const messageThreadId = ctx.message?.message_thread_id;
+        if (!messageThreadId) {
+          logger("[TELEGRAM] message thread id not found");
+          return;
+        }
+
+        await insertTelegramEvent(
+          this.context.dbPool,
+          telegramEvents[0].ticket_event_id,
+          telegramEvents[0].telegram_chat_id,
+          messageThreadId
+        );
+
+        await ctx.reply(
+          `Successfully linked anonymous channel. DM me with /anonsend to anonymously send a message.`
+        );
+      } catch (error) {
+        logger(`[ERROR] ${error}`);
+        await ctx.reply(`Failed to link anonymous chat. Check server logs`);
+      }
     });
   }
 
