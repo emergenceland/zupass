@@ -32,7 +32,9 @@ import { logger } from "../util/logger";
 import {
   BotContext,
   SessionData,
+  anonTopicsMenu,
   dynamicEvents,
+  getEventsWithChats,
   getSessionKey,
   isDirectMessage,
   isGroupWithTopics,
@@ -99,7 +101,7 @@ export class TelegramService {
 
     const zupassMenu = new Menu("zupass");
     const eventsMenu = new Menu<BotContext>("events");
-    const anonSendMenu = new Menu("anonsend");
+    const anonSendMenu = new Menu<BotContext>("anonsend");
 
     // Uses the dynamic range feature of Grammy menus https://grammy.dev/plugins/menu#dynamic-ranges
     // /link and /unlink are unstable right now, pending fixes
@@ -117,12 +119,13 @@ export class TelegramService {
       return range;
     });
 
-    anonSendMenu.dynamic((_, menu) => {
-      const zktgUrl =
-        process.env.TELEGRAM_ANON_WEBSITE ?? "https://dev.local:4000/";
-      menu.webApp("Send anonymous message", zktgUrl);
-      return menu;
-    });
+    // anonSendMenu.dynamic((_, menu) => {
+    //   const zktgUrl =
+    //     process.env.TELEGRAM_ANON_WEBSITE ?? "https://dev.local:4000/";
+    //   menu.webApp("Send anonymous message", zktgUrl);
+    //   return menu;
+    // });
+    anonSendMenu.dynamic(anonTopicsMenu);
 
     this.bot.use(eventsMenu);
     this.bot.use(zupassMenu);
@@ -219,21 +222,8 @@ export class TelegramService {
           const events = await fetchLinkedPretixAndTelegramEvents(
             this.context.dbPool
           );
-          const eventsWithChatsRequests = events.map(async (e) => {
-            return {
-              ...e,
-              chat: e.telegramChatID
-                ? await this.bot.api.getChat(e.telegramChatID)
-                : null
-            };
-          });
-          const eventsWithChatsSettled = await Promise.allSettled(
-            eventsWithChatsRequests
-          );
-          const eventsWithChats = eventsWithChatsSettled
-            .filter((e) => e.status == "fulfilled")
-            // @ts-expect-error value after filtering for success
-            .map((e) => e.value);
+
+          const eventsWithChats = await getEventsWithChats(ctx, events);
 
           if (eventsWithChats.length === 0) {
             return ctx.api.editMessageText(
@@ -356,6 +346,8 @@ export class TelegramService {
     });
 
     this.bot.command("anonsend", async (ctx) => {
+      if (!ctx.from?.id) return;
+
       if (!isDirectMessage(ctx)) {
         const messageThreadId = ctx.message?.message_thread_id;
         const chatId = ctx.chat.id;
@@ -406,7 +398,7 @@ export class TelegramService {
         const hasLinked = telegramEvents.length > 0;
         if (!hasLinked) {
           await ctx.reply(
-            "This group is not linked to an event. Please use /link to link this group to an event.",
+            "This group is not linked to an event. Please use /manage in the Admin channel to link this group.",
             { message_thread_id: messageThreadId }
           );
           return;
@@ -418,11 +410,16 @@ export class TelegramService {
           return;
         }
 
+        const topicName =
+          ctx.message?.reply_to_message?.forum_topic_created?.name;
+        if (!topicName) throw new Error(`No topic name found`);
+
         await insertTelegramEvent(
           this.context.dbPool,
           telegramEvents[0].ticket_event_id,
           telegramEvents[0].telegram_chat_id,
-          messageThreadId
+          messageThreadId,
+          topicName
         );
 
         await ctx.reply(
@@ -435,6 +432,40 @@ export class TelegramService {
           message_thread_id: messageThreadId
         });
       }
+    });
+    this.bot.on(":forum_topic_edited", async (ctx) => {
+      //
+      logger(
+        `[CTX forum edited]`,
+        ctx,
+        ctx.update?.message?.forum_topic_edited
+      );
+      const topicName = ctx.update?.message?.forum_topic_edited.name;
+      const messageThreadId = ctx.update.message?.message_thread_id;
+      const chatId = ctx.chat.id;
+      const telegramEvents = await fetchTelegramEventsByChatId(
+        this.context.dbPool,
+        ctx.chat.id
+      );
+      logger(`events`, telegramEvents);
+      if (!chatId || !topicName || !messageThreadId)
+        throw new Error(`Missing chatId or topic name`);
+
+      const topicToUpdate = telegramEvents.find(
+        (e) =>
+          e.telegram_chat_id.toString() === chatId.toString() &&
+          e.anon_chat_id?.toString() === messageThreadId?.toString()
+      );
+
+      if (!topicToUpdate) throw new Error(`No topic to update found`);
+
+      await insertTelegramEvent(
+        this.context.dbPool,
+        telegramEvents[0].ticket_event_id,
+        telegramEvents[0].telegram_chat_id,
+        messageThreadId,
+        topicName
+      );
     });
   }
 

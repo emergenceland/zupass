@@ -17,7 +17,7 @@ import { PersistentCacheService } from "./services/persistentCacheService";
 import { ProvingService } from "./services/provingService";
 import { RollbarService } from "./services/rollbarService";
 import { SemaphoreService } from "./services/semaphoreService";
-import { TelegramService } from "./services/telegramService";
+import { TelegramService } from "./services/TelegramService.1";
 import { UserService } from "./services/userService";
 import { ZuzaluPretixSyncService } from "./services/zuzaluPretixSyncService";
 

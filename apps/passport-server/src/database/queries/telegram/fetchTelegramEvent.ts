@@ -41,6 +41,8 @@ export interface LinkedPretixTelegramEvent {
   telegramChatID: string | null;
   eventName: string;
   configEventID: string;
+  anonChatID: string | null;
+  anonChatName: string | null;
 }
 
 export async function fetchLinkedPretixAndTelegramEvents(
@@ -51,11 +53,37 @@ export async function fetchLinkedPretixAndTelegramEvents(
     `\
     SELECT
       tbe.telegram_chat_id AS "telegramChatID",
+      tbe.anon_chat_id AS "anonChatID",
+      tbe.topic_name AS "anonChatName",
       dpe.event_name AS "eventName",
       dpe.pretix_events_config_id AS "configEventID" 
     FROM devconnect_pretix_events_info dpe 
     LEFT JOIN telegram_bot_events tbe ON dpe.pretix_events_config_id = tbe.ticket_event_id
     `
+  );
+
+  return result.rows;
+}
+
+export async function fetchEventsByTelegramUserId(
+  client: Pool,
+  telegramUserId: number
+): Promise<LinkedPretixTelegramEvent[]> {
+  const result = await sqlQuery(
+    client,
+    `\
+    SELECT
+      tbe.telegram_chat_id AS "telegramChatID",
+      dpe.event_name AS "eventName",
+      dpe.pretix_events_config_id AS "configEventID",
+      tbe.anon_chat_id AS "anonChatID",
+      tbe.topic_name AS "anonChatName"
+    FROM devconnect_pretix_events_info dpe 
+    LEFT JOIN telegram_bot_events tbe ON dpe.pretix_events_config_id = tbe.ticket_event_id
+    LEFT JOIN telegram_bot_conversations tbc ON tbe.telegram_chat_id = tbc.telegram_chat_id
+    WHERE tbc.telegram_user_id = $1;
+    `,
+    [telegramUserId]
   );
 
   return result.rows;

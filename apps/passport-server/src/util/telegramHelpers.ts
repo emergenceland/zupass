@@ -1,10 +1,11 @@
 import { MenuRange } from "@grammyjs/menu";
 import { Context, SessionFlavor } from "grammy";
-import { ChatMemberAdministrator, ChatMemberOwner } from "grammy/types";
+import { Chat, ChatMemberAdministrator, ChatMemberOwner } from "grammy/types";
 import { Pool } from "postgres-pool";
 import { deleteTelegramEvent } from "../database/queries/telegram/deleteTelegramEvent";
 import {
   LinkedPretixTelegramEvent,
+  fetchEventsByTelegramUserId,
   fetchLinkedPretixAndTelegramEvents
 } from "../database/queries/telegram/fetchTelegramEvent";
 import { insertTelegramEvent } from "../database/queries/telegram/insertTelegramConversation";
@@ -14,7 +15,12 @@ export interface SessionData {
   dbPool: Pool;
   selectedEvent?: LinkedPretixTelegramEvent & { isLinked: boolean };
   lastMessageId?: number;
+  eventWithChat?: LinkedEventWithChat;
 }
+
+export type LinkedEventWithChat = LinkedPretixTelegramEvent & {
+  chat: Chat.GroupGetChat | Chat.SupergroupGetChat | null;
+};
 
 export type BotContext = Context & SessionFlavor<SessionData>;
 
@@ -44,6 +50,28 @@ export const isDirectMessage = (ctx: Context): boolean => {
 
 export const isGroupWithTopics = (ctx: Context): boolean => {
   return !!(ctx.chat?.type && ctx.chat?.type === "supergroup");
+};
+
+export const getEventsWithChats = async (
+  ctx: BotContext,
+  events: LinkedPretixTelegramEvent[]
+): Promise<LinkedEventWithChat[]> => {
+  const eventsWithChatsRequests = events.map(async (e) => {
+    return {
+      ...e,
+      chat: e.telegramChatID ? await ctx.api.getChat(e.telegramChatID) : null
+    };
+  });
+  const eventsWithChatsSettled = await Promise.allSettled(
+    eventsWithChatsRequests
+  );
+  const eventsWithChats = eventsWithChatsSettled
+    .filter(
+      (e): e is PromiseFulfilledResult<LinkedEventWithChat> =>
+        e.status === "fulfilled"
+    )
+    .map((e) => e.value);
+  return eventsWithChats;
 };
 
 const checkDeleteMessage = (ctx: BotContext): void => {
@@ -151,6 +179,50 @@ export const dynamicEvents = async (
             }
           }
         )
+        .row();
+    }
+  }
+};
+
+export const anonTopicsMenu = async (
+  ctx: BotContext,
+  range: MenuRange<BotContext>
+): Promise<void> => {
+  const db = ctx.session.dbPool;
+  // logger(`msg ctx`, ctx.message);
+  if (!db) {
+    range.text(`Database not connected. Try again...`);
+    return;
+  }
+  if (!ctx.from?.id) {
+    range.text(`User id not found`);
+    return;
+  }
+
+  const events = await fetchEventsByTelegramUserId(db, ctx.from.id);
+  const eventsWithChats = await getEventsWithChats(ctx, events);
+
+  if (ctx.session.eventWithChat) {
+    const event = ctx.session.eventWithChat;
+
+    range.text(`${event.chat?.title}`).row();
+
+    // Get topics
+    range
+      .webApp(`${event.anonChatName}`, "https://anon-bot-test.onrender.com/")
+      .row();
+    range.text(`Go back`, async (ctx) => {
+      checkDeleteMessage(ctx);
+      ctx.session.eventWithChat = undefined;
+      await ctx.menu.update({ immediate: true });
+    });
+  } else {
+    for (const event of eventsWithChats) {
+      range
+        .text(`${event.chat?.title}`, async (ctx) => {
+          ctx.session.eventWithChat = event;
+          await ctx.menu.update({ immediate: true });
+        })
         .row();
     }
   }

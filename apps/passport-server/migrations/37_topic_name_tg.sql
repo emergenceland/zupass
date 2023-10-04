@@ -1,0 +1,2 @@
+ALTER TABLE telegram_bot_events
+ADD column topic_name VARCHAR
