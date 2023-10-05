@@ -83,7 +83,8 @@ export interface ChatIDWithEventIDs {
 }
 
 export async function fetchEventsPerChat(
-  client: Pool
+  client: Pool,
+  eventId: string
 ): Promise<ChatIDWithEventIDs[]> {
   const result = await sqlQuery(
     client,
@@ -93,9 +94,24 @@ export async function fetchEventsPerChat(
       FROM 
         telegram_bot_events
       GROUP BY 
-        telegram_chat_id;`
+        telegram_chat_id;`,
+    [eventId]
   );
+  return result.rows;
+}
 
+export async function fetchTelegramAnonTopicsByEventId(
+  client: Pool,
+  eventId: string
+): Promise<TelegramAnonChannel[]> {
+  const result = await sqlQuery(
+    client,
+    `\
+    select * from telegram_chat_anon_topics
+    where ticket_event_id = $1
+    `,
+    [eventId]
+  );
   return result.rows;
 }
 

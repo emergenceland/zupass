@@ -376,6 +376,43 @@ export class TelegramService {
       );
     });
 
+    this.bot.on(":forum_topic_edited", async (ctx) => {
+      //
+      logger(
+        `[TELEGRAM forum topic edited]`,
+        ctx,
+        ctx.update?.message?.forum_topic_edited
+      );
+      const topicName = ctx.update?.message?.forum_topic_edited.name;
+      const messageThreadId = ctx.update.message?.message_thread_id;
+      const chatId = ctx.chat.id;
+      const telegramEvents = await fetchTelegramAnonTopicsByChatId(
+        this.context.dbPool,
+        ctx.chat.id
+      );
+      const ticketEvents = await fetchTelegramEventsByChatId(
+        this.context.dbPool,
+        ctx.chat.id
+      );
+      if (!chatId || !topicName || !messageThreadId)
+        throw new Error(`Missing chatId or topic name`);
+
+      const topicToUpdate = telegramEvents.find(
+        (e) =>
+          e.anon_topic_id?.toString() === messageThreadId?.toString() &&
+          ticketEvents.find((t) => t.ticket_event_id === e.ticket_event_id)
+      );
+
+      if (!topicToUpdate) throw new Error(`No topic to update found`);
+
+      await insertTelegramAnonTopic(
+        this.context.dbPool,
+        telegramEvents[0].ticket_event_id,
+        messageThreadId,
+        topicName
+      );
+    });
+
     this.bot.command("incognito", async (ctx) => {
       const messageThreadId = ctx.message?.message_thread_id;
       if (!messageThreadId) {
