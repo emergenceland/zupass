@@ -83,8 +83,7 @@ export interface ChatIDWithEventIDs {
 }
 
 export async function fetchEventsPerChat(
-  client: Pool,
-  eventId: string
+  client: Pool
 ): Promise<ChatIDWithEventIDs[]> {
   const result = await sqlQuery(
     client,
@@ -94,9 +93,9 @@ export async function fetchEventsPerChat(
       FROM 
         telegram_bot_events
       GROUP BY 
-        telegram_chat_id;`,
-    [eventId]
+        telegram_chat_id;`
   );
+
   return result.rows;
 }
 
