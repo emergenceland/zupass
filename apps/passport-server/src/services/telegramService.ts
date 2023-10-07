@@ -376,6 +376,8 @@ export class TelegramService {
       );
     });
 
+    // TODO: see if you can handle forum topics being deleted
+
     this.bot.on(":forum_topic_edited", async (ctx) => {
       //
       logger(
