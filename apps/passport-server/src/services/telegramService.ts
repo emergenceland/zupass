@@ -446,7 +446,7 @@ export class TelegramService {
         });
 
         const messageToPin = await ctx.reply(
-          "Click here to post to this topic",
+          "Click here to post to this topic. Or send me a DM with /anonsend",
           {
             message_thread_id: messageThreadId,
             reply_markup: new InlineKeyboard().url(

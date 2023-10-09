@@ -375,7 +375,7 @@ export const chatsToPostIn = async (
       for (const topic of topics) {
         const encodedTopicData = base64EncodeTopicData(
           topic.anon_topic_name,
-          topic.anon_topic_name,
+          topic.anon_topic_id,
           validEventIds
         );
         range
