@@ -29,6 +29,7 @@ import {
   TopicChat,
   chatIDsToChats,
   chatsToJoin,
+  chatsToPostIn,
   dynamicEvents,
   findChatByEventIds,
   getSessionKey,
@@ -72,18 +73,13 @@ export class TelegramService {
 
     const zupassMenu = new Menu<BotContext>("zupass");
     const eventsMenu = new Menu<BotContext>("events");
-    const anonSendMenu = new Menu("anonsend");
+    const anonSendMenu = new Menu<BotContext>("anonsend");
 
     // Uses the dynamic range feature of Grammy menus https://grammy.dev/plugins/menu#dynamic-ranges
     // /link and /unlink are unstable right now, pending fixes
     eventsMenu.dynamic(dynamicEvents);
     zupassMenu.dynamic(chatsToJoin);
-
-    anonSendMenu.dynamic((ctx, menu) => {
-      const zktgUrl = `${process.env.TELEGRAM_ANON_WEBSITE}`;
-      menu.webApp("Post anonymous message", zktgUrl);
-      return menu;
-    });
+    anonSendMenu.dynamic(chatsToPostIn);
 
     this.bot.use(eventsMenu);
     this.bot.use(zupassMenu);
@@ -340,9 +336,12 @@ export class TelegramService {
         return;
       }
 
-      await ctx.reply("Click below to anonymously send a message.", {
-        reply_markup: anonSendMenu
-      });
+      await ctx.reply(
+        "Choose a group. You can only post if you are a ticketed member.",
+        {
+          reply_markup: anonSendMenu
+        }
+      );
     });
 
     this.bot.on(":forum_topic_edited", async (ctx) => {
