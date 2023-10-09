@@ -27,11 +27,11 @@ import {
   BotContext,
   SessionData,
   TopicChat,
+  base64EncodeTopicData,
   chatIDsToChats,
   chatsToJoin,
   chatsToPostIn,
   dynamicEvents,
-  encodeTopicData,
   findChatByEventIds,
   getSessionKey,
   isDirectMessage,
@@ -435,7 +435,7 @@ export class TelegramService {
         );
 
         const validEventIds = telegramEvents.map((e) => e.ticket_event_id);
-        encodedTopicData = encodeTopicData(
+        const encodedTopicData = base64EncodeTopicData(
           topicName,
           messageThreadId,
           validEventIds
