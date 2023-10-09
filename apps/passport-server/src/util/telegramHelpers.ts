@@ -42,6 +42,26 @@ export interface SessionData {
 
 export type BotContext = Context & SessionFlavor<SessionData>;
 
+export const encodeTopicData = (
+  topicName: string,
+  topicId: number | string,
+  validEventIds: string[]
+): string => {
+  const topicData = Buffer.from(
+    JSON.stringify({
+      topicName,
+      topicId,
+      validEventIds
+    }),
+    "utf-8"
+  );
+  const encodedTopicData = topicData.toString("base64");
+  if (encodedTopicData.length > 512)
+    throw new Error("Topic data too big for telegram startApp parameter");
+
+  return encodedTopicData;
+};
+
 function isFulfilled<T>(
   promiseSettledResult: PromiseSettledResult<T>
 ): promiseSettledResult is PromiseFulfilledResult<T> {
@@ -338,56 +358,56 @@ export const chatsToPostIn = async (
     range.text(`User not found. Try again...`);
     return;
   }
-
-  if (ctx.session.selectedChat) {
-    const chat = ctx.session.selectedChat;
-    const topics = await fetchTelegramAnonTopicsByChatId(
-      ctx.session.dbPool,
-      chat.id
-    );
-    const telegramEvents = await fetchTelegramEventsByChatId(
-      ctx.session.dbPool,
-      chat.id
-    );
-    const validEventIds = telegramEvents.map((e) => e.ticket_event_id);
-
-    range.text(`Choose a topic ⬇`).row();
-    for (const topic of topics) {
-      const topicData = Buffer.from(
-        JSON.stringify({
-          topicName: topic.anon_topic_name,
-          topicId: topic.anon_topic_id,
-          validEventIds
-        }),
-        "utf-8"
+  try {
+    if (ctx.session.selectedChat) {
+      const chat = ctx.session.selectedChat;
+      const topics = await fetchTelegramAnonTopicsByChatId(
+        ctx.session.dbPool,
+        chat.id
       );
-      const encodedTopicData = topicData.toString("base64");
-      range
-        .webApp(
-          `${topic.anon_topic_name}`,
-          `${process.env.TELEGRAM_ANON_WEBSITE}?tgWebAppStartParam=${encodedTopicData}`
-        )
-        .row();
-    }
+      const telegramEvents = await fetchTelegramEventsByChatId(
+        ctx.session.dbPool,
+        chat.id
+      );
+      const validEventIds = telegramEvents.map((e) => e.ticket_event_id);
 
-    range.text(`Go back`, async (ctx) => {
-      ctx.session.selectedChat = undefined;
-      await ctx.menu.update({ immediate: true });
-    });
-  } else {
-    const events = await fetchEventsPerChat(db);
-    const eventsWithChats = await chatIDsToChats(db, ctx, events);
-    if (eventsWithChats && eventsWithChats.length === 0) {
-      range.text(`No groups to join at this time`);
-      return;
+      range.text(`Choose a topic ⬇`).row();
+      for (const topic of topics) {
+        const encodedTopicData = encodeTopicData(
+          topic.anon_topic_name,
+          topic.anon_topic_name,
+          validEventIds
+        );
+        range
+          .webApp(
+            `${topic.anon_topic_name}`,
+            `${process.env.TELEGRAM_ANON_WEBSITE}?tgWebAppStartParam=${encodedTopicData}`
+          )
+          .row();
+      }
+
+      range.text(`Go back`, async (ctx) => {
+        ctx.session.selectedChat = undefined;
+        await ctx.menu.update({ immediate: true });
+      });
+    } else {
+      const events = await fetchEventsPerChat(db);
+      const eventsWithChats = await chatIDsToChats(db, ctx, events);
+      if (eventsWithChats && eventsWithChats.length === 0) {
+        range.text(`No groups to join at this time`);
+        return;
+      }
+      for (const chat of eventsWithChats) {
+        range
+          .text(`${chat.chat?.title}`, async (ctx) => {
+            ctx.session.selectedChat = chat.chat;
+            await ctx.menu.update({ immediate: true });
+          })
+          .row();
+      }
     }
-    for (const chat of eventsWithChats) {
-      range
-        .text(`${chat.chat?.title}`, async (ctx) => {
-          ctx.session.selectedChat = chat.chat;
-          await ctx.menu.update({ immediate: true });
-        })
-        .row();
-    }
+  } catch (error) {
+    range.text(`Action failed ${error}`);
+    return;
   }
 };

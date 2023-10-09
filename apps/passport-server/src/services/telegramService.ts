@@ -31,6 +31,7 @@ import {
   chatsToJoin,
   chatsToPostIn,
   dynamicEvents,
+  encodeTopicData,
   findChatByEventIds,
   getSessionKey,
   isDirectMessage,
@@ -434,18 +435,11 @@ export class TelegramService {
         );
 
         const validEventIds = telegramEvents.map((e) => e.ticket_event_id);
-
-        const topicData = Buffer.from(
-          JSON.stringify({
-            topicName,
-            topicId: messageThreadId,
-            validEventIds
-          }),
-          "utf-8"
+        encodedTopicData = encodeTopicData(
+          topicName,
+          messageThreadId,
+          validEventIds
         );
-        const encodedTopicData = topicData.toString("base64");
-        if (encodedTopicData.length > 512)
-          throw new Error("Topic data too big for telegram startApp parameter");
 
         await ctx.reply(`Successfully linked anonymous channel.`, {
           message_thread_id: messageThreadId
