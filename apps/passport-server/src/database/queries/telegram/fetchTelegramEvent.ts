@@ -99,17 +99,17 @@ export async function fetchEventsPerChat(
   return result.rows;
 }
 
-export async function fetchTelegramAnonTopicsByEventId(
+export async function fetchTelegramAnonTopicsByChatId(
   client: Pool,
-  eventId: string
+  telegramChatId: number
 ): Promise<TelegramAnonChannel[]> {
   const result = await sqlQuery(
     client,
     `\
     select * from telegram_chat_anon_topics
-    where ticket_event_id = $1
+    where telegram_chat_id = $1
     `,
-    [eventId]
+    [telegramChatId]
   );
   return result.rows;
 }

@@ -270,6 +270,7 @@ export const dynamicEvents = async (
           } else {
             replyText = `<i>Removed ${event.eventName} to chat</i>`;
             await deleteTelegramEvent(db, event.configEventID);
+            await deleteTelegramEvent(db, event.configEventID);
           }
         }
         ctx.session.selectedEvent = undefined;
