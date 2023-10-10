@@ -15,11 +15,10 @@ import {
   fetchLinkedPretixAndTelegramEvents,
   fetchTelegramAnonTopicsByChatId,
   fetchTelegramEventByEventId,
-  fetchTelegramEventsByChatId,
-  fetchTelegramTopicsByChatId
+  fetchTelegramEventsByChatId
 } from "../database/queries/telegram/fetchTelegramEvent";
 import {
-  insertTelegramTopic,
+  insertTelegramAnonTopic,
   insertTelegramVerification
 } from "../database/queries/telegram/insertTelegramConversation";
 import { ApplicationContext } from "../types";
@@ -346,28 +345,6 @@ export class TelegramService {
       );
     });
 
-    this.bot.on(":forum_topic_created", async (ctx) => {
-      logger(
-        `[TELEGRAM forum topic created]`,
-        ctx,
-        ctx.update?.message?.forum_topic_created
-      );
-      const topicName = ctx.update?.message?.forum_topic_created.name;
-      const messageThreadId = ctx.update.message?.message_thread_id;
-      const chatId = ctx.chat.id;
-
-      if (!chatId || !topicName || !messageThreadId)
-        throw new Error(`Missing chatId or topic name`);
-
-      await insertTelegramTopic(
-        this.context.dbPool,
-        chatId,
-        messageThreadId,
-        topicName,
-        false
-      );
-    });
-
     this.bot.on(":forum_topic_edited", async (ctx) => {
       logger(
         `[TELEGRAM forum topic edited]`,
@@ -377,25 +354,25 @@ export class TelegramService {
       const topicName = ctx.update?.message?.forum_topic_edited.name;
       const messageThreadId = ctx.update.message?.message_thread_id;
       const chatId = ctx.chat.id;
-      const topicsForChat = await fetchTelegramTopicsByChatId(
+      const anonTopicsForChat = await fetchTelegramAnonTopicsByChatId(
         this.context.dbPool,
         ctx.chat.id
       );
       if (!chatId || !topicName || !messageThreadId)
         throw new Error(`Missing chatId or topic name`);
 
-      const topic = topicsForChat.find(
-        (e) => e.topic_id?.toString() === messageThreadId?.toString()
-      );
+      const anonTopicExists =
+        anonTopicsForChat.filter(
+          (e) => e.anon_topic_id?.toString() === messageThreadId?.toString()
+        ).length > 0;
 
-      if (!topic) throw new Error(`No topic to update found`);
+      if (!anonTopicExists) throw new Error(`No topic to update found`);
 
-      await insertTelegramTopic(
+      await insertTelegramAnonTopic(
         this.context.dbPool,
         chatId,
         messageThreadId,
-        topicName,
-        topic.is_anon_topic
+        topicName
       );
     });
 
@@ -467,11 +444,11 @@ export class TelegramService {
         );
 
         const currentAnonTopic = chatAnonTopics.find(
-          (t) => t.topic_id == messageThreadId
+          (t) => t.anon_topic_id == messageThreadId
         );
 
-        if (currentAnonTopic && currentAnonTopic.is_anon_topic) {
-          await ctx.reply(`This topic is already anonymous.`, {
+        if (currentAnonTopic) {
+          await ctx.reply(`This topic is already an anonymous channel.`, {
             message_thread_id: messageThreadId
           });
           return;
@@ -481,12 +458,11 @@ export class TelegramService {
           ctx.message?.reply_to_message?.forum_topic_created?.name;
         if (!topicName) throw new Error(`No topic name found`);
 
-        await insertTelegramTopic(
+        await insertTelegramAnonTopic(
           this.context.dbPool,
           ctx.chat.id,
           messageThreadId,
-          topicName,
-          true
+          topicName
         );
 
         const validEventIds = telegramEvents.map((e) => e.ticket_event_id);
@@ -511,7 +487,6 @@ export class TelegramService {
           }
         );
         ctx.pinChatMessage(messageToPin.message_id);
-        ctx.api.closeForumTopic(ctx.chat.id, messageThreadId);
       } catch (error) {
         logger(`[ERROR] ${error}`);
         await ctx.reply(`Failed to link anonymous chat. Check server logs`, {
@@ -798,7 +773,7 @@ export class TelegramService {
     }
 
     const ticketedAnonEvent = anonTopicsForEvent.find(
-      (topicForEvent) => topicForEvent.topic_id == topicId
+      (topicForEvent) => topicForEvent.anon_topic_id == topicId
     );
     if (!ticketedAnonEvent) {
       throw new Error(
@@ -808,7 +783,7 @@ export class TelegramService {
 
     await this.sendToAnonymousChannel(
       chat.id,
-      ticketedAnonEvent.topic_id,
+      ticketedAnonEvent.anon_topic_id,
       message
     );
   }
