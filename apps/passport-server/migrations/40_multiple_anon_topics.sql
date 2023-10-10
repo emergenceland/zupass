@@ -23,3 +23,4 @@ create table telegram_chat_anon_topics (
 );
 
 create index idx_telegram_chat_id on telegram_chat_anon_topics(telegram_chat_id);
+
