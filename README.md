@@ -73,6 +73,9 @@ In the root of this project, execute the following to start the servers and stat
 # installs dependencies for all apps and packages in this repository
 yarn
 
+# Some packages need to be built first, like @pcd/passport-crypto in @pcd/collection
+yarn build
+
 # starts local Postgres - you must have Postgres installed for this
 # to work properly. in case you want to restart a Postgres instance
 # you previously started in this project, you can also run the command
